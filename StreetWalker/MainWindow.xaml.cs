@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Net.Mime;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 using BruTile.Predefined;
 using Mapsui.Layers;
 using Mapsui.Projection;
@@ -31,7 +28,6 @@ namespace StreetWalker
             random = new Random();
             currentNodeId = "6260778311";
             Walk();
-
         }
 
         class Way
@@ -79,64 +75,13 @@ namespace StreetWalker
             return res;
         }
 
-        private Mapsui.Geometries.Point NodeToPoint(string nodeId)
+        private async Task<Mapsui.Geometries.Point> NodeToPoint(string nodeId, HttpClient client, string url)
         {
-            string url = "https://overpass.kumi.systems/api/interpreter";
             string bodyFormat =
                 "[out:json];" +
                 "node({0});" +
                 "out;";
             string body = String.Format(bodyFormat, nodeId);
-
-            var handler = new WinHttpHandler();
-            var client = new HttpClient(handler);
-
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri(url),
-                Content = new StringContent(body, Encoding.UTF8)
-            };
-
-            var responseTask = client.SendAsync(request).ConfigureAwait(false);
-            var response = responseTask.GetAwaiter().GetResult().EnsureSuccessStatusCode();
-            response.EnsureSuccessStatusCode();
-
-            var responseBodyTask = response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var responseBody = responseBodyTask.GetAwaiter().GetResult();
-            NodeResponse responseJson = JsonConvert.DeserializeObject<NodeResponse>(responseBody);
-            Node node = responseJson.elements[0];
-
-            return SphericalMercator.FromLonLat(node.lon, node.lat);
-        }
-
-        private string GetRandomElement(List<string> list)
-        {
-            int randomIndex = random.Next(list.Count);
-            return list[randomIndex];
-        }
-
-        private async Task Walk()
-        {
-            while(true)
-            {
-                await WalkOnce();
-                await Task.Delay(1000);
-            }
-        }
-
-        private async Task WalkOnce()
-        {
-            string url = "https://overpass.kumi.systems/api/interpreter";
-            string bodyFormat =
-                "[out:json];" +
-                "node({0});" +
-                "way(bn);" +
-                "out;";
-            string body = String.Format(bodyFormat, currentNodeId);
-
-            var handler = new WinHttpHandler();
-            var client = new HttpClient(handler);
 
             var request = new HttpRequestMessage
             {
@@ -150,13 +95,64 @@ namespace StreetWalker
 
             var responseBody = await response.Content.ReadAsStringAsync();
 
-            WalkerResponse responseJson = JsonConvert.DeserializeObject<WalkerResponse>(responseBody);
-            List<string> adjacentNodes = FindAdjacentNodes(responseJson, currentNodeId);
+            NodeResponse responseJson = JsonConvert.DeserializeObject<NodeResponse>(responseBody);
+            Node node = responseJson.elements[0];
+
+            return SphericalMercator.FromLonLat(node.lon, node.lat);
+        }
+        private async Task<WalkerResponse> GetNodeWays(HttpClient client, string url)
+        {
+            string bodyFormat =
+                "[out:json];" +
+                "node({0});" +
+                "way(bn);" +
+                "out;";
+            string body = String.Format(bodyFormat, currentNodeId);
+
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(url),
+                Content = new StringContent(body, Encoding.UTF8)
+            };
+
+            var response = await client.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<WalkerResponse>(responseBody);
+        }
+
+        private string GetRandomElement(List<string> list)
+        {
+            int randomIndex = random.Next(list.Count);
+            return list[randomIndex];
+        }
+
+        private async Task Walk()
+        {
+            var handler = new WinHttpHandler();
+            var client = new HttpClient(handler);
+            string url = "https://overpass.kumi.systems/api/interpreter";
+
+            while(true)
+            {
+                await WalkOnce(client, url);
+                await Task.Delay(1000);
+            }
+        }
+
+        private async Task WalkOnce(HttpClient client, string url)
+        {
+            DateTime start = DateTime.Now;
+            WalkerResponse walkerResponse = await GetNodeWays(client, url);
+            List<string> adjacentNodes = FindAdjacentNodes(walkerResponse, currentNodeId);
             currentNodeId = GetRandomElement(adjacentNodes);
-            Mapsui.Geometries.Point currentNodePoint = NodeToPoint(currentNodeId);
+            Mapsui.Geometries.Point currentNodePoint = await NodeToPoint(currentNodeId, client, url);
 
             // Mapsui.Geometries.Point point = SphericalMercator.FromLonLat(23.3155870, 42.6987510);
             MyMapControl.Navigator.NavigateTo(currentNodePoint, 1.0);
+            Console.WriteLine("Request took {0}", (DateTime.Now - start).ToString());
         }
     }
 }
