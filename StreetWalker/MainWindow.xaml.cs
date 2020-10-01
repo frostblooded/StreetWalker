@@ -20,6 +20,7 @@ namespace StreetWalker
 
         private string currentNodeId;
         private Random random;
+        private MemoryLayer pinLayer;
 
         public MainWindow()
         {
@@ -133,7 +134,7 @@ namespace StreetWalker
         {
             var handler = new WinHttpHandler();
             var client = new HttpClient(handler);
-            string url = "https://overpass.kumi.systems/api/interpreter";
+            string url = "https://lz4.overpass-api.de/api/interpreter";
 
             while(true)
             {
@@ -142,17 +143,32 @@ namespace StreetWalker
             }
         }
 
+        private void UpdatePinLayer(Mapsui.Geometries.Point currentNodePoint)
+        {
+            LayerCollection layers = MyMapControl.Map.Layers;
+
+            if(layers.Count > 1)
+            {
+                layers.Remove(pinLayer);
+            }
+
+            pinLayer = WalkerPin.CreateWalkerLayer(currentNodePoint);
+            layers.Add(pinLayer);
+        }
+
         private async Task WalkOnce(HttpClient client, string url)
         {
             DateTime start = DateTime.Now;
+
             WalkerResponse walkerResponse = await GetNodeWays(client, url);
             List<string> adjacentNodes = FindAdjacentNodes(walkerResponse, currentNodeId);
             currentNodeId = GetRandomElement(adjacentNodes);
             Mapsui.Geometries.Point currentNodePoint = await NodeToPoint(currentNodeId, client, url);
-
-            // Mapsui.Geometries.Point point = SphericalMercator.FromLonLat(23.3155870, 42.6987510);
             MyMapControl.Navigator.NavigateTo(currentNodePoint, 1.0);
+            UpdatePinLayer(currentNodePoint);
+            
             Console.WriteLine("Request took {0}", (DateTime.Now - start).ToString());
+            Console.WriteLine("Point is now {0}", currentNodeId);
         }
     }
 }
