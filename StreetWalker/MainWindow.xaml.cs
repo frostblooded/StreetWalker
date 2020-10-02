@@ -14,12 +14,15 @@ namespace StreetWalker
     public partial class MainWindow : Window
     {
         public const int PATH_MAX_LENGTH = 100;
+        public const string SERVER_URL = "https://overpass.kumi.systems/api/interpreter";
+
         public Mapsui.INavigator Navigator;
 
         private string currentNodeId;
         private Random random;
         private MemoryLayer pinLayer;
         private List<string> path;
+        private HttpClient client;
 
         public MainWindow()
         {
@@ -27,7 +30,9 @@ namespace StreetWalker
             MyMapControl.Map.Layers.Add(new TileLayer(KnownTileSources.Create()));
             random = new Random();
             path = new List<string>();
-            currentNodeId = "6260778311";
+            client = new HttpClient(new WinHttpHandler());
+
+            SetStartingNode().GetAwaiter().GetResult();
             Walk();
         }
 
@@ -52,6 +57,50 @@ namespace StreetWalker
                 Element node = nodes.Find(x => x.id == nodeId);
                 return SphericalMercator.FromLonLat(node.lon, node.lat);
             }
+
+            public static WalkerResponse FromJson(string json)
+            {
+                WalkerResponse walkerResponse = JsonConvert.DeserializeObject<WalkerResponse>(json);
+                walkerResponse.ways = walkerResponse.elements.FindAll(x => x.type == "way");
+                walkerResponse.nodes = walkerResponse.elements.FindAll(x => x.type == "node");
+                return walkerResponse;
+            }
+        }
+
+        private async Task<string> SetStartingNode()
+        {           
+            string bodyFormat =
+                "[out:json];" +
+                "node(42.69, 23.32, 42.7, 23.33);" +
+                "out;";
+            string body = String.Format(bodyFormat, currentNodeId);
+
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(SERVER_URL),
+                Content = new StringContent(body, Encoding.UTF8)
+            };
+
+            Console.WriteLine("Getting Sofia nodes...");
+            var response = await client.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine("Parsing Sofia nodes...");
+            WalkerResponse walkerResponse = WalkerResponse.FromJson(responseBody);
+
+            if(walkerResponse.elements.Count == 0)
+            {
+                Console.WriteLine("No elements retrieved");
+                return "";
+            }
+
+            Element randomNode = ChooseRandomElement(walkerResponse.nodes);
+            Console.WriteLine("Starting node chosen: {0}", currentNodeId);
+            SetCurrentNode(walkerResponse, randomNode.id);
+
+            return randomNode.id;
         }
 
         private List<string> FindAdjacentNodes(WalkerResponse walkerResponse, string currentNodeId)
@@ -76,7 +125,7 @@ namespace StreetWalker
             return res;
         }
 
-        private async Task<WalkerResponse> GetNodeWays(HttpClient client, string url)
+        private async Task<WalkerResponse> GetNodeWays()
         {
             string bodyFormat =
                 "[out:json];" +
@@ -89,7 +138,7 @@ namespace StreetWalker
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(url),
+                RequestUri = new Uri(SERVER_URL),
                 Content = new StringContent(body, Encoding.UTF8)
             };
 
@@ -104,7 +153,7 @@ namespace StreetWalker
             return walkerResponse;
         }
 
-        private string ChooseRandomElement(List<string> list)
+        private T ChooseRandomElement<T>(List<T> list)
         {
             int randomIndex = random.Next(list.Count);
             return list[randomIndex];
@@ -126,13 +175,9 @@ namespace StreetWalker
 
         private async Task Walk()
         {
-            var handler = new WinHttpHandler();
-            var client = new HttpClient(handler);
-            string url = "https://lz4.overpass-api.de/api/interpreter";
-
             while(true)
             {
-                await WalkOnce(client, url);
+                await WalkOnce();
                 await Task.Delay(1000);
             }
         }
@@ -162,20 +207,27 @@ namespace StreetWalker
             path.Add(nodeId);
         }
 
-        private async Task WalkOnce(HttpClient client, string url)
+        private void SetCurrentNode(WalkerResponse walkerResponse, string nodeId)
+        {
+            Mapsui.Geometries.Point nodePoint = walkerResponse.GetNodePoint(nodeId);
+            MyMapControl.Navigator.NavigateTo(nodePoint, 1.0);
+            UpdatePinLayer(nodePoint);
+            AddToPath(nodeId);
+            currentNodeId = nodeId;
+
+            Console.WriteLine("Point is now {0} at {1}", nodeId, nodePoint.ToString());
+        }
+
+        private async Task WalkOnce()
         {
             DateTime start = DateTime.Now;
 
-            WalkerResponse walkerResponse = await GetNodeWays(client, url);
+            WalkerResponse walkerResponse = await GetNodeWays();
             List<string> adjacentNodes = FindAdjacentNodes(walkerResponse, currentNodeId);
-            currentNodeId = ChooseNeighbor(adjacentNodes);
-            Mapsui.Geometries.Point currentNodePoint = walkerResponse.GetNodePoint(currentNodeId);
-            MyMapControl.Navigator.NavigateTo(currentNodePoint, 1.0);
-            UpdatePinLayer(currentNodePoint);
-            AddToPath(currentNodeId);
+            string neighborId = ChooseNeighbor(adjacentNodes);
+            SetCurrentNode(walkerResponse, neighborId);
             
             Console.WriteLine("Request took {0}", (DateTime.Now - start).ToString());
-            Console.WriteLine("Point is now {0} at {1}", currentNodeId, currentNodePoint.ToString());
         }
     }
 }
