@@ -31,34 +31,34 @@ namespace StreetWalker
             Walk();
         }
 
-        class Way
+        class Element
         {
+            public string type;
             public string id;
             public List<string> nodes;
+            public float lat;
+            public float lon;
         }
 
         class WalkerResponse
         {
             public float version;
-            public List<Way> elements;
-        }
+            public List<Element> elements;
+            public List<Element> nodes;
+            public List<Element> ways;
 
-        class Node
-        {
-            public float lon;
-            public float lat;
-        }
-
-        class NodeResponse
-        {
-            public List<Node> elements;
+            public Mapsui.Geometries.Point GetNodePoint(string nodeId)
+            {
+                Element node = nodes.Find(x => x.id == nodeId);
+                return SphericalMercator.FromLonLat(node.lon, node.lat);
+            }
         }
 
         private List<string> FindAdjacentNodes(WalkerResponse walkerResponse, string currentNodeId)
         {
             List<string> res = new List<string>();
 
-            foreach(Way way in walkerResponse.elements)
+            foreach(Element way in walkerResponse.ways)
             {
                 int currentNodeIndex = way.nodes.FindIndex(x => x == currentNodeId);
                 
@@ -76,37 +76,13 @@ namespace StreetWalker
             return res;
         }
 
-        private async Task<Mapsui.Geometries.Point> NodeToPoint(string nodeId, HttpClient client, string url)
-        {
-            string bodyFormat =
-                "[out:json];" +
-                "node({0});" +
-                "out;";
-            string body = String.Format(bodyFormat, nodeId);
-
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri(url),
-                Content = new StringContent(body, Encoding.UTF8)
-            };
-
-            var response = await client.SendAsync(request).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-
-            NodeResponse responseJson = JsonConvert.DeserializeObject<NodeResponse>(responseBody);
-            Node node = responseJson.elements[0];
-
-            return SphericalMercator.FromLonLat(node.lon, node.lat);
-        }
         private async Task<WalkerResponse> GetNodeWays(HttpClient client, string url)
         {
             string bodyFormat =
                 "[out:json];" +
                 "node({0});" +
                 "way(bn);" +
+                "(._; node(w););" +
                 "out;";
             string body = String.Format(bodyFormat, currentNodeId);
 
@@ -121,7 +97,11 @@ namespace StreetWalker
             response.EnsureSuccessStatusCode();
 
             var responseBody = await response.Content.ReadAsStringAsync();
-            return JsonConvert.DeserializeObject<WalkerResponse>(responseBody);
+
+            WalkerResponse walkerResponse = JsonConvert.DeserializeObject<WalkerResponse>(responseBody);
+            walkerResponse.ways = walkerResponse.elements.FindAll(x => x.type == "way");
+            walkerResponse.nodes = walkerResponse.elements.FindAll(x => x.type == "node");
+            return walkerResponse;
         }
 
         private string ChooseRandomElement(List<string> list)
@@ -189,7 +169,7 @@ namespace StreetWalker
             WalkerResponse walkerResponse = await GetNodeWays(client, url);
             List<string> adjacentNodes = FindAdjacentNodes(walkerResponse, currentNodeId);
             currentNodeId = ChooseNeighbor(adjacentNodes);
-            Mapsui.Geometries.Point currentNodePoint = await NodeToPoint(currentNodeId, client, url);
+            Mapsui.Geometries.Point currentNodePoint = walkerResponse.GetNodePoint(currentNodeId);
             MyMapControl.Navigator.NavigateTo(currentNodePoint, 1.0);
             UpdatePinLayer(currentNodePoint);
             AddToPath(currentNodeId);
