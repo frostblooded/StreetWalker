@@ -11,22 +11,22 @@ using Newtonsoft.Json;
 
 namespace StreetWalker
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
+        public const int PATH_MAX_LENGTH = 100;
         public Mapsui.INavigator Navigator;
 
         private string currentNodeId;
         private Random random;
         private MemoryLayer pinLayer;
+        private List<string> path;
 
         public MainWindow()
         {
             InitializeComponent();
             MyMapControl.Map.Layers.Add(new TileLayer(KnownTileSources.Create()));
             random = new Random();
+            path = new List<string>();
             currentNodeId = "6260778311";
             Walk();
         }
@@ -124,10 +124,24 @@ namespace StreetWalker
             return JsonConvert.DeserializeObject<WalkerResponse>(responseBody);
         }
 
-        private string GetRandomElement(List<string> list)
+        private string ChooseRandomElement(List<string> list)
         {
             int randomIndex = random.Next(list.Count);
             return list[randomIndex];
+        }
+
+        private string ChooseNeighbor(List<string> neighbors)
+        {
+            List<string> usableNeighbors = new List<string>(neighbors);
+            usableNeighbors.RemoveAll(x => path.Contains(x));
+
+            if(usableNeighbors.Count == 0)
+            {
+                Console.WriteLine("No usable neighbors. Returning a random neighbor.");
+                return ChooseRandomElement(neighbors);
+            }
+
+            return ChooseRandomElement(usableNeighbors);
         }
 
         private async Task Walk()
@@ -156,19 +170,32 @@ namespace StreetWalker
             layers.Add(pinLayer);
         }
 
+        private void AddToPath(string nodeId)
+        {
+            if(path.Count >= PATH_MAX_LENGTH)
+            {
+                // If the path is getting too long, remove the oldest
+                // visited node from the path, so that we can visit it again.
+                path.RemoveAt(0);
+            }
+
+            path.Add(nodeId);
+        }
+
         private async Task WalkOnce(HttpClient client, string url)
         {
             DateTime start = DateTime.Now;
 
             WalkerResponse walkerResponse = await GetNodeWays(client, url);
             List<string> adjacentNodes = FindAdjacentNodes(walkerResponse, currentNodeId);
-            currentNodeId = GetRandomElement(adjacentNodes);
+            currentNodeId = ChooseNeighbor(adjacentNodes);
             Mapsui.Geometries.Point currentNodePoint = await NodeToPoint(currentNodeId, client, url);
             MyMapControl.Navigator.NavigateTo(currentNodePoint, 1.0);
             UpdatePinLayer(currentNodePoint);
+            AddToPath(currentNodeId);
             
             Console.WriteLine("Request took {0}", (DateTime.Now - start).ToString());
-            Console.WriteLine("Point is now {0}", currentNodeId);
+            Console.WriteLine("Point is now {0} at {1}", currentNodeId, currentNodePoint.ToString());
         }
     }
 }
