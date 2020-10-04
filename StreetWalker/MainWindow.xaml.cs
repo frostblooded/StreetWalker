@@ -68,10 +68,12 @@ namespace StreetWalker
         }
 
         private async Task<string> SetStartingNode()
-        {           
+        {
             string bodyFormat =
                 "[out:json];" +
                 "node(42.69, 23.32, 42.7, 23.33);" +
+                "way(bn)[highway];" +
+                "node(w);" +
                 "out;";
             string body = String.Format(bodyFormat, currentNodeId);
 
