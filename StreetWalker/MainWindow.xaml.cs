@@ -1,20 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using BruTile.Predefined;
 using Mapsui.Layers;
-using Newtonsoft.Json;
 
 namespace StreetWalker
 {
     public partial class MainWindow : Window
     {
-
-        public Mapsui.INavigator Navigator;
-
         private MemoryLayer pinLayer;
         private Walker walker;
         private NodeChooser nodeChooser;
@@ -34,7 +27,7 @@ namespace StreetWalker
         {
             await nodeChooser.LoadTiles().ConfigureAwait(false);
             SetStartingNode();
-            _ = Walk().ConfigureAwait(false);
+            _ = Walk();
         }
 
         private void SetStartingNode()

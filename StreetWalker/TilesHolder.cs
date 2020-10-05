@@ -1,8 +1,6 @@
 ﻿using Mapsui.Projection;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace StreetWalker
@@ -63,7 +61,7 @@ namespace StreetWalker
 
             Console.WriteLine("Processing tile {0}, {1}, {2}, {3}", lon1, lat1, lon2, lat2);
 
-            AddWalkerResponse(walkerResponse);
+            ProcessTileResponse(walkerResponse);
 
             Console.WriteLine("Done loading tile {0}, {1}, {2}, {3}", lon1, lat1, lon2, lat2);
         }
@@ -91,11 +89,11 @@ namespace StreetWalker
 
             foreach(Task t in tasks)
             {
-                await t;
+                await t.ConfigureAwait(false);
             }
         }
 
-        private void AddWalkerResponse(WalkerResponse walkerResponse)
+        private void ProcessTileResponse(WalkerResponse walkerResponse)
         {
             foreach (Element element in walkerResponse.elements)
             {

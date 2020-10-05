@@ -17,15 +17,10 @@ namespace StreetWalker
     {
         public float version;
         public List<Element> elements;
-        public List<Element> nodes;
-        public List<Element> ways;
 
         public static WalkerResponse FromJson(string json)
         {
-            WalkerResponse walkerResponse = JsonConvert.DeserializeObject<WalkerResponse>(json);
-            walkerResponse.ways = walkerResponse.elements.FindAll(x => x.type == "way");
-            walkerResponse.nodes = walkerResponse.elements.FindAll(x => x.type == "node");
-            return walkerResponse;
+            return JsonConvert.DeserializeObject<WalkerResponse>(json);
         }
     }
 }

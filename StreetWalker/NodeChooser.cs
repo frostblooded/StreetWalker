@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace StreetWalker
@@ -9,14 +8,12 @@ namespace StreetWalker
     class NodeChooser
     {
         private Random random;
-        private NetworkingManager networkingManager;
 
         public TilesHolder TilesHolder { get; set; }
 
         public NodeChooser()
         {
             random = new Random();
-            networkingManager = new NetworkingManager();
             TilesHolder = new TilesHolder();
         }
 
