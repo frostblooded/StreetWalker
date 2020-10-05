@@ -10,33 +10,44 @@ namespace StreetWalker
     {
         private Random random;
         private NetworkingManager networkingManager;
-        private TilesHolder tilesHolder;
+
+        public TilesHolder TilesHolder { get; set; }
 
         public NodeChooser()
         {
             random = new Random();
             networkingManager = new NetworkingManager();
-
-            tilesHolder = new TilesHolder();
-            tilesHolder.LoadTile(42.69f, 23.32f, 42.7f, 23.33f).ConfigureAwait(false).GetAwaiter().GetResult();
+            TilesHolder = new TilesHolder();
         }
 
-        public  List<string> FindAdjacentNodes(WalkerResponse walkerResponse, string currentNodeId)
+        public async Task LoadTiles()
+        {
+            await TilesHolder.LoadTile(42.69f, 23.32f, 42.7f, 23.33f).ConfigureAwait(false);
+        }
+
+        public  List<string> FindAdjacentNodes(string currentNodeId)
         {
             List<string> res = new List<string>();
 
-            foreach (Element way in walkerResponse.ways)
+            foreach (KeyValuePair<string, Way> way in TilesHolder.ways)
             {
-                int currentNodeIndex = way.nodes.FindIndex(x => x == currentNodeId);
+                List<string> nodes = way.Value.nodes;
+                int currentNodeIndex = nodes.FindIndex(x => x == currentNodeId);
+
+                // If node doesn't appear in this way, skip it
+                if(currentNodeIndex < 0)
+                {
+                    continue;
+                }
 
                 if (currentNodeIndex > 0)
                 {
-                    res.Add(way.nodes[currentNodeIndex - 1]);
+                    res.Add(nodes[currentNodeIndex - 1]);
                 }
 
-                if (currentNodeIndex < way.nodes.Count - 1)
+                if (currentNodeIndex < nodes.Count - 1)
                 {
-                    res.Add(way.nodes[currentNodeIndex + 1]);
+                    res.Add(nodes[currentNodeIndex + 1]);
                 }
             }
 
@@ -65,7 +76,13 @@ namespace StreetWalker
 
         public string GetStartingNode()
         {
-            return ChooseRandomElement(tilesHolder.nodes.Keys.ToList());
+            return ChooseRandomElement(TilesHolder.nodes.Keys.ToList());
+        }
+
+        public string GetNextNode(Walker walker)
+        {
+            List<string> adjacentNodes = FindAdjacentNodes(walker.CurrentNodeId);
+            return ChooseNeighbor(walker, adjacentNodes);
         }
     }
 }

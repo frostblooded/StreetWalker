@@ -17,30 +17,31 @@ namespace StreetWalker
 
         private MemoryLayer pinLayer;
         private Walker walker;
-        private NetworkingManager networkingManager;
         private NodeChooser nodeChooser;
-        private TilesHolder tilesHolder;
 
         public MainWindow()
         {
             InitializeComponent();
 
             MyMapControl.Map.Layers.Add(new TileLayer(KnownTileSources.Create()));
-            networkingManager = new NetworkingManager();
             walker = new Walker();
             nodeChooser = new NodeChooser();
 
-            _ = SetStartingNode().ConfigureAwait(false).GetAwaiter().GetResult();
-            _ = Walk();
+            _ = InitMap();
         }
 
-        private async Task<string> SetStartingNode()
+        private async Task InitMap()
+        {
+            await nodeChooser.LoadTiles().ConfigureAwait(false);
+            SetStartingNode();
+            _ = Walk().ConfigureAwait(false);
+        }
+
+        private void SetStartingNode()
         {
             string startingNodeId = nodeChooser.GetStartingNode();
             SetCurrentNode(startingNodeId);
             Console.WriteLine("Starting node chosen: {0}", walker.CurrentNodeId);
-
-            return startingNodeId;
         }
 
         private void UpdatePinLayer(Mapsui.Geometries.Point currentNodePoint)
@@ -56,22 +57,10 @@ namespace StreetWalker
             layers.Add(pinLayer);
         }
 
-        private async Task<WalkerResponse> GetNodeWays()
-        {
-            string bodyFormat =
-                "[out:json];" +
-                "node({0});" +
-                "way(bn);" +
-                "(._; node(w););" +
-                "out;";
-            string body = string.Format(bodyFormat, walker.CurrentNodeId);
-            return await networkingManager.MakeRequest(body);
-        }
-
         private void SetCurrentNode(string nodeId)
         {
-            Mapsui.Geometries.Point nodePoint = tilesHolder.GetNodePoint(nodeId);
-            MyMapControl.Navigator.NavigateTo(nodePoint, 1.5);
+            Mapsui.Geometries.Point nodePoint = nodeChooser.TilesHolder.GetNodePoint(nodeId);
+            MyMapControl.Navigator.NavigateTo(nodePoint, 1);
             UpdatePinLayer(nodePoint);
             walker.CurrentNodeId = nodeId;
 
@@ -82,21 +71,15 @@ namespace StreetWalker
         {
             while (true)
             {
-                await WalkOnce();
+                WalkOnce();
                 await Task.Delay(1000);
             }
         }
 
-        private async Task WalkOnce()
+        private void WalkOnce()
         {
-            DateTime start = DateTime.Now;
-
-            WalkerResponse walkerResponse = await GetNodeWays();
-            List<string> adjacentNodes = nodeChooser.FindAdjacentNodes(walkerResponse, walker.CurrentNodeId);
-            string neighborId = nodeChooser.ChooseNeighbor(walker, adjacentNodes);
+            string neighborId = nodeChooser.GetNextNode(walker);
             SetCurrentNode(neighborId);
-
-            Console.WriteLine("Request took {0}", (DateTime.Now - start).ToString());
         }
     }
 }
