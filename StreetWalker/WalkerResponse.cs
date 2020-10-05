@@ -4,6 +4,11 @@ using System.Collections.Generic;
 
 namespace StreetWalker
 {
+    class Tags
+    {
+        public string highway;
+    }
+
     class Element
     {
         public string type;
@@ -11,6 +16,7 @@ namespace StreetWalker
         public List<string> nodes;
         public float lat;
         public float lon;
+        public Tags tags = new Tags();
     }
 
     class WalkerResponse

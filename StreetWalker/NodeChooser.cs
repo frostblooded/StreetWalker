@@ -73,7 +73,9 @@ namespace StreetWalker
 
         public string GetStartingNode()
         {
-            return ChooseRandomElement(TilesHolder.nodes.Keys.ToList());
+            List<Way> highways = TilesHolder.Highways;
+            List<string> highwayNodes = highways.SelectMany(x => x.nodes).ToList();
+            return ChooseRandomElement(highwayNodes);
         }
 
         public string GetNextNode(Walker walker)

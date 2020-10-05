@@ -1,6 +1,7 @@
 ﻿using Mapsui.Projection;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace StreetWalker
@@ -23,11 +24,13 @@ namespace StreetWalker
     {
         public string id;
         public List<string> nodes;
+        public Tags tags;
 
         public Way(Element element)
         {
             id = element.id;
             nodes = new List<string>(element.nodes);
+            tags = element.tags;
         }
     }
 
@@ -36,8 +39,19 @@ namespace StreetWalker
         public const float TILE_DIFFERENCE = 0.01f;
 
         private NetworkingManager networkingManager;
+
         public Dictionary<string, Node> nodes;
         public Dictionary<string, Way> ways;
+
+        public List<Way> Highways
+        {
+            get
+            {
+                return ways.Where(x => x.Value.tags.highway != null)
+                           .Select(x => x.Value)
+                           .ToList();
+            }
+        }
 
         public TilesHolder()
         {
@@ -75,7 +89,7 @@ namespace StreetWalker
             tasks.Add(LoadTile(lon1 + TILE_DIFFERENCE, lat1 - TILE_DIFFERENCE, lon2 + TILE_DIFFERENCE, lat2 - TILE_DIFFERENCE));
             tasks.Add(LoadTile(lon1 - TILE_DIFFERENCE, lat1, lon2 - TILE_DIFFERENCE, lat2));
 
-            if(includingCurrentTile)
+            if (includingCurrentTile)
             {
                 tasks.Add(LoadTile(lon1, lat1, lon2, lat2));
             }
@@ -87,7 +101,7 @@ namespace StreetWalker
 
             Console.WriteLine("Loading {0} tiles...", tasks.Count);
 
-            foreach(Task t in tasks)
+            foreach (Task t in tasks)
             {
                 await t.ConfigureAwait(false);
             }
