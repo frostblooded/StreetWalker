@@ -57,18 +57,90 @@ namespace StreetWalker
             return list[randomIndex];
         }
 
-        public string ChooseNeighbor(Walker walker, List<string> neighbors)
+        private bool ProbabilitiesListIsValid(List<double> probabilities)
         {
-            List<string> usableNeighbors = new List<string>(neighbors);
-            usableNeighbors.RemoveAll(x => walker.Path.Contains(x));
+            double sum = probabilities.Aggregate(0.0, (s, x) => s + x);
 
-            if (usableNeighbors.Count == 0)
+            // Make sure probabilities sum up to 1.
+            return Math.Abs(1 - sum) < double.Epsilon;
+        }
+
+        private string ChooseWithProbabilities(List<string> list, List<double> probabilities)
+        {
+            bool validProbabilities = ProbabilitiesListIsValid(probabilities);
+
+            if(list.Count == 0)
             {
-                Console.WriteLine("No usable neighbors. Returning a random neighbor.");
-                return ChooseRandomElement(neighbors);
+                throw new Exception("List is empty");
             }
 
-            return ChooseRandomElement(usableNeighbors);
+            if(!validProbabilities)
+            {
+                Console.Error.WriteLine("Probabilities {0} don't sum up to 1.", string.Join(",", probabilities));
+            }
+
+            if(list.Count != probabilities.Count)
+            {
+                throw new Exception("List and probabilities list should be with same length.");
+            }
+
+            double randValue = random.NextDouble();
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if(randValue <= probabilities[i])
+                {
+                    return list[i];
+                }
+
+                randValue -= probabilities[i];
+            }
+
+            return list[list.Count - 1];
+        }
+
+        public string ChooseNeighbor(Walker walker, List<string> neighbors)
+        {
+            List<double> probabilities = new List<double>(neighbors.Count);
+            double probabilitiesSum = 0;
+
+            foreach(string neighbor in neighbors)
+            {
+                double neighborPathPos = walker.Path.FindIndex(x => x == neighbor);
+                double probability;
+
+                // If isn't in path
+                if(neighborPathPos == -1)
+                {
+                    probability = Walker.PATH_MAX_LENGTH;
+                }
+                // If it is in path
+                else
+                {
+                    // probability = Walker.PATH_MAX_LENGTH / (Walker.PATH_MAX_LENGTH * 2 - neighborPathPos);
+                    probability = (neighborPathPos + 1) / Walker.PATH_MAX_LENGTH;
+                }
+
+                probabilities.Add(probability);
+                probabilitiesSum += probability;
+            }
+
+            for(int i = 0; i < probabilities.Count; i++)
+            {
+                probabilities[i] /= probabilitiesSum;
+
+                if(double.IsNaN(probabilities[i]))
+                {
+                    throw new Exception("Probability is NaN");
+                }
+            }
+
+            string chosenNeighbor = ChooseWithProbabilities(neighbors, probabilities);
+            double chosenNeighborProbability = probabilities[neighbors.FindIndex(x => x == chosenNeighbor)];
+
+            Console.WriteLine("Next neighbor {0} chosen with probability {1}", chosenNeighbor, chosenNeighborProbability);
+
+            return chosenNeighbor;
         }
 
         public string GetStartingNode()

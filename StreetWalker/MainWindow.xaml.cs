@@ -20,14 +20,14 @@ namespace StreetWalker
             walker = new Walker();
             nodeChooser = new NodeChooser();
 
-            _ = InitMap();
+            _ = InitMap().ConfigureAwait(false);
         }
 
         private async Task InitMap()
         {
             await nodeChooser.LoadTiles().ConfigureAwait(false);
             SetStartingNode();
-            _ = Walk();
+            _ = Walk().ConfigureAwait(false);
         }
 
         private void SetStartingNode()
