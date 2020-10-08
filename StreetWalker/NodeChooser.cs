@@ -19,7 +19,7 @@ namespace StreetWalker
 
         public async Task LoadTiles()
         {
-            await TilesHolder.LoadTile(42.69f, 23.32f, 42.7f, 23.33f).ConfigureAwait(false);
+            await TilesHolder.LoadTile(new Tile(23.32f, 42.69f, 23.33f, 42.7f)).ConfigureAwait(false);
         }
 
         public  List<string> FindAdjacentNodes(string currentNodeId)

@@ -166,11 +166,14 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="NetworkingManager.cs" />
+    <Compile Include="Node.cs" />
     <Compile Include="NodeChooser.cs" />
+    <Compile Include="Tile.cs" />
     <Compile Include="TilesHolder.cs" />
     <Compile Include="Walker.cs" />
     <Compile Include="WalkerPin.cs" />
     <Compile Include="WalkerResponse.cs" />
+    <Compile Include="Way.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

@@ -64,15 +64,17 @@ namespace StreetWalker
         {
             while (true)
             {
-                WalkOnce();
+                await WalkOnce();
                 await Task.Delay(1000);
             }
         }
 
-        private void WalkOnce()
+        private async Task WalkOnce()
         {
             string neighborId = nodeChooser.GetNextNode(walker);
             SetCurrentNode(neighborId);
+            Tile neighborTile = nodeChooser.TilesHolder.GetNodeTile(neighborId);
+            await nodeChooser.TilesHolder.LoadAdjacentTiles(neighborTile);
         }
     }
 }
