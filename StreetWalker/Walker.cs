@@ -12,6 +12,10 @@ namespace StreetWalker
 
         public const int PATH_MAX_LENGTH = 100;
 
+        // Average human walking speed
+        public const double WALK_SPEED_KM_PER_HOUR = 5;
+        public const double WALK_SPEED_KM_PER_SECOND = WALK_SPEED_KM_PER_HOUR / 3600;
+
         public string CurrentNodeId {
             get {
                 return currentNodeId;

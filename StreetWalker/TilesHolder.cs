@@ -125,5 +125,30 @@ namespace StreetWalker
 
             return new Tile(roundedLon1, roundedLat1, roundedLon2, roundedLat2);
         }
+
+        // Returns the distance in kilometers
+        public double GetGeoDistance(Mapsui.Geometries.Point p1, Mapsui.Geometries.Point p2)
+        {
+            Mapsui.Geometries.Point lonLatPoint1 = SphericalMercator.ToLonLat(p1.X, p1.Y);
+            Mapsui.Geometries.Point lonLatPoint2 = SphericalMercator.ToLonLat(p2.X, p2.Y);
+            return GetGeoDistanceTo(lonLatPoint1.Y, lonLatPoint1.X, lonLatPoint2.Y, lonLatPoint2.X, 'K');
+        }
+
+        private double GetGeoDistanceTo(double lat1, double lon1, double lat2, double lon2, char unit = 'K')
+        {
+            double rlat1 = Math.PI * lat1 / 180;
+            double rlat2 = Math.PI * lat2 / 180;
+            double theta = lon1 - lon2;
+            double rtheta = Math.PI * theta / 180;
+            double dist =
+                Math.Sin(rlat1) * Math.Sin(rlat2) + Math.Cos(rlat1) *
+                Math.Cos(rlat2) * Math.Cos(rtheta);
+            dist = Math.Acos(dist);
+            dist = dist * 180 / Math.PI;
+            dist = dist * 60 * 1.1515;
+
+            // Convert to Kms
+            return dist * 1.609344;
+        }
     }
 }
