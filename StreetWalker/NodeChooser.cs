@@ -57,88 +57,58 @@ namespace StreetWalker
             return list[randomIndex];
         }
 
-        private bool ProbabilitiesListIsValid(List<double> probabilities)
+        private string ChooseWithPriority(List<string> list, List<double> priorities)
         {
-            double sum = probabilities.Aggregate(0.0, (s, x) => s + x);
-
-            // Make sure probabilities sum up to 1.
-            return Math.Abs(1 - sum) < double.Epsilon;
-        }
-
-        private string ChooseWithProbabilities(List<string> list, List<double> probabilities)
-        {
-            bool validProbabilities = ProbabilitiesListIsValid(probabilities);
-
             if(list.Count == 0)
             {
                 throw new Exception("List is empty");
             }
 
-            if(!validProbabilities)
-            {
-                Console.Error.WriteLine("Probabilities {0} don't sum up to 1.", string.Join(",", probabilities));
-            }
-
-            if(list.Count != probabilities.Count)
+            if(list.Count != priorities.Count)
             {
                 throw new Exception("List and probabilities list should be with same length.");
             }
 
-            double randValue = random.NextDouble();
+            double maxPriority = 0;
+            List<int> maxPrioritiesIndices = new List<int>();
 
-            for (int i = 0; i < list.Count; i++)
+            for(int i = 0; i < priorities.Count; i++)
             {
-                if(randValue <= probabilities[i])
+                if(priorities[i] > maxPriority)
                 {
-                    return list[i];
+                    maxPriority = priorities[i];
+                    maxPrioritiesIndices.Clear();
+                    maxPrioritiesIndices.Add(i);
                 }
-
-                randValue -= probabilities[i];
+                else if(priorities[i] == maxPriority)
+                {
+                    maxPrioritiesIndices.Add(i);
+                }
             }
 
-            return list[list.Count - 1];
+            int randomMaxPriorityIndex = ChooseRandomElement(maxPrioritiesIndices);
+            return list[randomMaxPriorityIndex];
         }
 
         public string ChooseNeighbor(Walker walker, List<string> neighbors)
         {
-            List<double> probabilities = new List<double>(neighbors.Count);
-            double probabilitiesSum = 0;
+            List<double> priorities = new List<double>(neighbors.Count);
 
             foreach(string neighbor in neighbors)
             {
-                double neighborPathPos = walker.Path.FindIndex(x => x == neighbor);
-                double probability;
+                double neighborPathPos = walker.Path.FindLastIndex(x => x == neighbor);
+                
+                // Even works when the neighbor isn't in the path, because neighborPathPos
+                // will be -1 and still work correctly.
+                double probability = Walker.PATH_MAX_LENGTH / (neighborPathPos + 2);
 
-                // If isn't in path
-                if(neighborPathPos == -1)
-                {
-                    probability = Walker.PATH_MAX_LENGTH;
-                }
-                // If it is in path
-                else
-                {
-                    // probability = Walker.PATH_MAX_LENGTH / (Walker.PATH_MAX_LENGTH * 2 - neighborPathPos);
-                    probability = (neighborPathPos + 1) / Walker.PATH_MAX_LENGTH;
-                }
-
-                probabilities.Add(probability);
-                probabilitiesSum += probability;
+                priorities.Add(probability);
             }
 
-            for(int i = 0; i < probabilities.Count; i++)
-            {
-                probabilities[i] /= probabilitiesSum;
+            string chosenNeighbor = ChooseWithPriority(neighbors, priorities);
+            double chosenNeighborPriority = priorities[neighbors.FindIndex(x => x == chosenNeighbor)];
 
-                if(double.IsNaN(probabilities[i]))
-                {
-                    throw new Exception("Probability is NaN");
-                }
-            }
-
-            string chosenNeighbor = ChooseWithProbabilities(neighbors, probabilities);
-            double chosenNeighborProbability = probabilities[neighbors.FindIndex(x => x == chosenNeighbor)];
-
-            Console.WriteLine("Next neighbor {0} chosen with probability {1}", chosenNeighbor, chosenNeighborProbability);
+            Console.WriteLine("Next neighbor {0} chosen with priority {1}", chosenNeighbor, chosenNeighborPriority);
 
             return chosenNeighbor;
         }
